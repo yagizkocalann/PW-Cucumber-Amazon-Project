@@ -113,4 +113,101 @@ export class SearchResultsPage extends BasePage {
     }
     return samples;
   }
+
+  async openFirstResultAndGetTitle(): Promise<string> {
+    await this.waitForResults();
+    const items = await this.getResultItems();
+    const itemCount = await items.count();
+    let link = items.first().locator("h2 a").first();
+    let title = "";
+    let href: string | null = null;
+
+    for (let i = 0; i < itemCount; i++) {
+      const item = items.nth(i);
+      const h2 = item.locator("h2").first();
+      const aria = (await h2.getAttribute("aria-label")) ?? "";
+      const isSponsored = aria.toLowerCase().includes("sponsorlu");
+      const candidate = item.locator("h2 a").first();
+      const candidateHref = (await candidate.getAttribute("href")) ?? "";
+      if (isSponsored) continue;
+      if (!candidateHref.includes("/dp/") && !candidateHref.includes("/gp/") && !candidateHref.includes("/product/")) {
+        continue;
+      }
+      link = candidate;
+      href = candidateHref;
+      title = (await candidate.locator("span").first().innerText()).trim();
+      break;
+    }
+
+    if (!title) {
+      await link.waitFor({ state: "visible", timeout: 15000 });
+      title = (await link.locator("span").first().innerText()).trim();
+      href = href ?? (await link.getAttribute("href"));
+    }
+    if (href) {
+      const absolute = href.startsWith("http") ? href : new URL(href, this.page.url()).toString();
+      await this.page.goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 });
+      await this.page.waitForSelector("#productTitle", { timeout: 20000 });
+    } else {
+      await Promise.all([
+        this.page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 20000 }),
+        link.click({ timeout: 10000 })
+      ]);
+    }
+    return title;
+  }
+
+  async openFirstResultWithTitleContaining(keyword: string): Promise<string> {
+    await this.waitForResults();
+    const h2 = this.page
+      .locator(`div.s-main-slot h2[aria-label*="${keyword}"]`)
+      .first();
+
+    await h2.waitFor({ state: "visible", timeout: 15000 });
+    const titleText = (await h2.locator("span").first().innerText()).trim();
+    const link = h2.locator("xpath=ancestor::a[1]");
+    const href = await link.getAttribute("href");
+    if (href) {
+      const absolute = href.startsWith("http") ? href : new URL(href, this.page.url()).toString();
+      await this.page.goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 });
+      await this.page.waitForSelector("#productTitle", { timeout: 20000 });
+      return titleText;
+    }
+
+    await Promise.all([
+      this.page.waitForURL(/\/dp\//, { timeout: 20000 }),
+      link.click({ timeout: 10000 })
+    ]);
+    await this.page.waitForSelector("#productTitle", { timeout: 20000 });
+    return titleText;
+  }
+
+  async openNthResultWithTitleContaining(keyword: string, index: number): Promise<string> {
+    await this.waitForResults();
+    if (index < 1) {
+      throw new Error(`Index must be >= 1. Received: ${index}`);
+    }
+    const h2List = this.page.locator(`div.s-main-slot h2[aria-label*="${keyword}"]`);
+    const count = await h2List.count();
+    if (count < index) {
+      throw new Error(`Only ${count} results matched "${keyword}", cannot select ${index}.`);
+    }
+    const h2 = h2List.nth(index - 1);
+    await h2.waitFor({ state: "visible", timeout: 15000 });
+    const titleText = (await h2.locator("span").first().innerText()).trim();
+    const link = h2.locator("xpath=ancestor::a[1]");
+    const href = await link.getAttribute("href");
+    if (href) {
+      const absolute = href.startsWith("http") ? href : new URL(href, this.page.url()).toString();
+      await this.page.goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 });
+      await this.page.waitForSelector("#productTitle", { timeout: 20000 });
+      return titleText;
+    }
+    await Promise.all([
+      this.page.waitForURL(/\/dp\//, { timeout: 20000 }),
+      link.click({ timeout: 10000 })
+    ]);
+    await this.page.waitForSelector("#productTitle", { timeout: 20000 });
+    return titleText;
+  }
 }
