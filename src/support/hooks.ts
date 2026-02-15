@@ -9,7 +9,8 @@ import {
   assertBasicPageState,
   assertMainContentVisible,
   assertNoErrorSentinels,
-  assertSearchResultsNotEmpty
+  assertSearchResultsNotEmpty,
+  assertCartHasItems
 } from "./assertions";
 
 setDefaultTimeout(config.defaultTimeout);
@@ -88,6 +89,7 @@ After(async function (this: CustomWorld, scenario) {
     await assertBasicPageState(this.page);
     if (searchSanityEnabled) {
       await assertSearchResultsNotEmpty(this.page);
+      await assertCartHasItems(this.page);
     }
     if (sentinelSanityEnabled) {
       await assertNoErrorSentinels(this.page);

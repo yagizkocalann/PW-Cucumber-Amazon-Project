@@ -47,6 +47,27 @@ export async function assertSearchResultsNotEmpty(page: Page) {
   expect(count).toBeGreaterThan(0);
 }
 
+export async function assertCartHasItems(page: Page) {
+  let url: URL | null = null;
+  try {
+    url = new URL(page.url());
+  } catch {
+    return;
+  }
+  const isCartPage =
+    url.pathname.includes("/cart") ||
+    url.pathname.includes("/gp/cart") ||
+    url.pathname.includes("/gp/aw/c");
+  if (!isCartPage) {
+    return;
+  }
+  const items = page.locator(
+    "div.sc-list-item, div.sc-list-item-content, div[data-item-count], div[data-asin]"
+  );
+  const count = await items.count();
+  expect(count).toBeGreaterThan(0);
+}
+
 export async function assertNoErrorSentinels(page: Page) {
   const bodyText = await page.locator("body").innerText();
   const normalized = normalizeTr(bodyText);
