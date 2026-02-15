@@ -1,0 +1,26 @@
+{
+  "name": "playwright-cucumber-automation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright + Cucumber (TS) automation framework for amazon.com.tr",
+  "scripts": {
+    "test:e2e": "cucumber-js; npm run report:html",
+    "test:e2e:headed": "HEADLESS=false cucumber-js",
+    "test:e2e:browser:firefox": "BROWSER=firefox cucumber-js",
+    "test:e2e:browser:webkit": "BROWSER=webkit cucumber-js",
+    "report:html": "node scripts/generate-cucumber-report.js",
+    "pw:install": "playwright install",
+    "pw:install:deps": "playwright install --with-deps"
+  },
+  "dependencies": {
+    "@cucumber/cucumber": "^10.0.0",
+    "@playwright/test": "^1.49.0",
+    "dotenv": "^16.4.5",
+    "playwright": "^1.49.0"
+  },
+  "devDependencies": {
+    "cucumber-html-reporter": "^7.2.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  }
+}
