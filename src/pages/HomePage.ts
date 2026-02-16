@@ -1,29 +1,17 @@
 import { BasePage } from "./BasePage";
 import { config } from "../config/env";
+import { homeSelectors } from "../selectors/home";
 
 export class HomePage extends BasePage {
-  private searchInput = "#twotabsearchtextbox";
-  private searchButton = "#nav-search-submit-button";
-  private cookieActionSelectors = [
-    "#sp-cc-rejectall-link",
-    "input[name='reject']",
-    "button:has-text(\"Reddet\")",
-    "a:has-text(\"Reddet\")",
-    "#sp-cc-accept",
-    "input#sp-cc-accept",
-    "input[name='accept']",
-    "button[name='accept']",
-    "button:has-text(\"Kabul et\")",
-    "a:has-text(\"Kabul et\")",
-    "button:has-text(\"Kişiselleştir\")",
-    "a:has-text(\"Kişiselleştir\")"
-  ];
+  private searchInput = homeSelectors.searchInput;
+  private searchButton = homeSelectors.searchButton;
 
   async visit() {
     if (!this.page.url().startsWith(config.baseUrl)) {
       await this.page.goto("/");
     }
     await this.acceptCookiesIfPresent();
+    await this.waitForReady();
   }
 
   async searchFor(term: string) {
@@ -37,14 +25,8 @@ export class HomePage extends BasePage {
 
   async acceptCookiesIfPresent(timeoutMs = 3000) {
     const deadline = Date.now() + timeoutMs;
-    const acceptSelectors = [
-      "#sp-cc-accept",
-      "input#sp-cc-accept",
-      "input[name='accept']",
-      "button[name='accept']",
-      "button:has-text(\"Kabul et\")",
-      "a:has-text(\"Kabul et\")"
-    ];
+    const acceptSelectors = homeSelectors.cookieAccept;
+    const rejectSelectors = homeSelectors.cookieReject;
 
     const tryClick = async (locator: ReturnType<typeof this.page.locator>) => {
       try {
@@ -62,6 +44,15 @@ export class HomePage extends BasePage {
       for (const selector of acceptSelectors) {
         const button = this.page.locator(selector).first();
         if (await tryClick(button)) {
+          console.log(`[COOKIE] Accepted via ${selector}`);
+          return;
+        }
+      }
+
+      for (const selector of rejectSelectors) {
+        const button = this.page.locator(selector).first();
+        if (await tryClick(button)) {
+          console.log(`[COOKIE] Rejected via ${selector}`);
           return;
         }
       }
@@ -73,6 +64,14 @@ export class HomePage extends BasePage {
         for (const selector of acceptSelectors) {
           const button = frame.locator(selector).first();
           if (await tryClick(button)) {
+            console.log(`[COOKIE] Accepted via frame ${selector}`);
+            return;
+          }
+        }
+        for (const selector of rejectSelectors) {
+          const button = frame.locator(selector).first();
+          if (await tryClick(button)) {
+            console.log(`[COOKIE] Rejected via frame ${selector}`);
             return;
           }
         }
@@ -80,5 +79,9 @@ export class HomePage extends BasePage {
 
       await this.page.waitForTimeout(250);
     }
+  }
+
+  async waitForReady() {
+    await this.page.waitForSelector(this.searchInput, { timeout: 15000 });
   }
 }

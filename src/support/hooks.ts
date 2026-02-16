@@ -10,7 +10,9 @@ import {
   assertMainContentVisible,
   assertNoErrorSentinels,
   assertSearchResultsNotEmpty,
-  assertCartHasItems
+  assertCartHasItems,
+  assertSearchResultHasPrice,
+  assertPageLoadWithin
 } from "./assertions";
 
 setDefaultTimeout(config.defaultTimeout);
@@ -33,6 +35,14 @@ function safeFileName(value: string) {
   return value.replace(/[^a-zA-Z0-9-_]+/g, "-").slice(0, 120);
 }
 
+function timestamp() {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
+    now.getHours()
+  )}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
 BeforeAll(async () => {
   const browserType = getBrowser();
   browser = await browserType.launch({ headless: config.headless });
@@ -51,6 +61,7 @@ Before(async function (this: CustomWorld) {
   this.page = await this.context.newPage();
   this.consoleErrors = [];
   this.httpErrors = [];
+  this.lastFailureCaptured = false;
   this.page.on("console", msg => {
     if (msg.type() === "error") {
       this.consoleErrors.push(msg.text());
@@ -65,10 +76,35 @@ Before(async function (this: CustomWorld) {
   await home.visit();
 });
 
-AfterStep(async function (this: CustomWorld, scenario) {
+AfterStep(async function (this: CustomWorld, step) {
   const stepSanityEnabled = (process.env.SANITY_STEP_CONTENT ?? "true").toLowerCase() !== "false";
   if (!stepSanityEnabled) return;
-  if (scenario.result?.status === Status.FAILED) return;
+  if (step.result?.status === Status.FAILED) {
+    if (!this.page || this.lastFailureCaptured) return;
+    const scenarioName = step.pickle?.name ?? "unknown-scenario";
+    const stepName = step.pickleStep?.text ?? "unknown-step";
+    const dir = path.join("artifacts", "screenshots");
+    fs.mkdirSync(dir, { recursive: true });
+    const logDir = path.join("artifacts", "logs");
+    fs.mkdirSync(logDir, { recursive: true });
+    const stamp = timestamp();
+    const fileBase = `${stamp}-${safeFileName(scenarioName)}-${safeFileName(stepName)}`;
+    const filePath = path.join(dir, `${fileBase}.png`);
+    await this.page.screenshot({ path: filePath, fullPage: true });
+    console.log(`[FAIL] Screenshot: ${filePath}`);
+    if (this.consoleErrors.length) {
+      const consolePath = path.join(logDir, `${fileBase}-console.log`);
+      fs.writeFileSync(consolePath, this.consoleErrors.join("\n"), "utf-8");
+      console.log(`[FAIL] Console log: ${consolePath}`);
+    }
+    if (this.httpErrors.length) {
+      const httpPath = path.join(logDir, `${fileBase}-http.log`);
+      fs.writeFileSync(httpPath, this.httpErrors.join("\n"), "utf-8");
+      console.log(`[FAIL] HTTP log: ${httpPath}`);
+    }
+    this.lastFailureCaptured = true;
+    return;
+  }
   if (!this.page) return;
   await assertMainContentVisible(this.page);
 });
@@ -79,6 +115,8 @@ After(async function (this: CustomWorld, scenario) {
   const sentinelSanityEnabled = (process.env.SANITY_SENTINELS ?? "false").toLowerCase() === "true";
   const failOnConsole = (process.env.FAIL_ON_CONSOLE_ERROR ?? "false").toLowerCase() === "true";
   const failOnHttp = (process.env.FAIL_ON_HTTP_ERROR ?? "false").toLowerCase() === "true";
+  const perfEnabled = (process.env.SANITY_PERF ?? "true").toLowerCase() !== "false";
+  const perfBudgetMs = Number(process.env.PERF_BUDGET_MS ?? 8000);
 
   if (scenario.result?.status === Status.FAILED && this.page) {
     console.log(`[FAIL] Scenario: ${scenario.pickle.name}`);
@@ -89,10 +127,14 @@ After(async function (this: CustomWorld, scenario) {
     await assertBasicPageState(this.page);
     if (searchSanityEnabled) {
       await assertSearchResultsNotEmpty(this.page);
+      await assertSearchResultHasPrice(this.page);
       await assertCartHasItems(this.page);
     }
     if (sentinelSanityEnabled) {
       await assertNoErrorSentinels(this.page);
+    }
+    if (perfEnabled && !Number.isNaN(perfBudgetMs)) {
+      await assertPageLoadWithin(this.page, perfBudgetMs);
     }
   }
 
@@ -105,19 +147,13 @@ After(async function (this: CustomWorld, scenario) {
     }
   }
 
-  if (scenario.result?.status === Status.FAILED && this.page) {
+  if (scenario.result?.status === Status.FAILED && this.page && !this.lastFailureCaptured) {
     const dir = path.join("artifacts", "screenshots");
     fs.mkdirSync(dir, { recursive: true });
     const name = safeFileName(scenario.pickle.name);
-    const filePath = path.join(dir, `${Date.now()}-${name}.png`);
+    const filePath = path.join(dir, `${timestamp()}-${name}-unknown-step.png`);
     await this.page.screenshot({ path: filePath, fullPage: true });
     console.log(`[FAIL] Screenshot: ${filePath}`);
-    if (this.consoleErrors.length) {
-      console.log(`Console errors:\n${this.consoleErrors.join("\n")}`);
-    }
-    if (this.httpErrors.length) {
-      console.log(`HTTP errors:\n${this.httpErrors.join("\n")}`);
-    }
   }
 
   await this.page?.close();

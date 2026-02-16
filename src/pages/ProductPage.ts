@@ -1,12 +1,12 @@
 import { BasePage } from "./BasePage";
+import { productSelectors } from "../selectors/product";
+import { retry } from "../support/retry";
 
 export class ProductPage extends BasePage {
-  private addToCartButton = "#add-to-cart-button, input#add-to-cart-button";
-  private productTitle = "#productTitle";
-  private optionSelects =
-    "select[name*='dropdown_selected'], select[name*='dropdown'], select#native_dropdown_selected_size_name, select#native_dropdown_selected_color_name";
-  private optionButtons =
-    "ul li[role='listitem'] input[type='submit'], ul li[role='listitem'] button";
+  private addToCartButton = productSelectors.addToCartButton;
+  private productTitle = productSelectors.productTitle;
+  private optionSelects = productSelectors.optionSelects;
+  private optionButtons = productSelectors.optionButtons;
 
   async getTitle(): Promise<string> {
     await this.page.waitForSelector(this.productTitle, { timeout: 15000 });
@@ -49,8 +49,14 @@ export class ProductPage extends BasePage {
   }
 
   async addToCart() {
+    await this.waitForReady();
     await this.selectFirstAvailableOptionIfNeeded();
     await this.page.waitForSelector(this.addToCartButton, { timeout: 15000 });
-    await this.page.click(this.addToCartButton);
+    await retry(() => this.page.click(this.addToCartButton), { label: "add to cart", retries: 2, delayMs: 700 });
+  }
+
+  async waitForReady() {
+    await this.page.waitForSelector(this.productTitle, { timeout: 15000 });
+    await this.page.waitForSelector(this.addToCartButton, { timeout: 15000 });
   }
 }

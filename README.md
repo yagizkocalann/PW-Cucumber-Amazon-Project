@@ -53,8 +53,11 @@ Not: `npm run test:e2e` artik test basarisiz olsa bile rapor uretir.
 - `src/steps/` Step definitions
 - `src/support/` Hooks ve World yapisi
 - `src/config/` Ortam degiskenleri ve config
+- `src/selectors/` Selector katmani
+- `src/test-data/` Test verileri
 - `reports/` Cucumber raporlari (JSON)
 - `artifacts/` Ekran goruntuleri
+- `artifacts/logs/` Fail loglari (console + HTTP)
 
 ## Test Kalite Standartlari
 
@@ -62,6 +65,8 @@ Varsayilan (acik) kalite kontrolleri:
 - Sayfa basligi bos degil (`page.title()`).
 - URL, `baseUrl` origin'ini icerir.
 - Arama sayfasi ise sonuc listesi bos degil (ASIN'li urun karti sayisi > 0).
+- Arama sonucundaki ilk kartta fiyat gorunur.
+- Sayfa yuklenme suresi `PERF_BUDGET_MS` asmaz (varsayilan 8000ms).
 - Her adim sonrasi ana icerik gorunur:
   `div.s-main-slot` (arama sayfasi) veya `#twotabsearchtextbox` (home).
 
@@ -72,7 +77,8 @@ Opsiyonel sentinel kontrolleri (varsayilan kapali):
 
 Fail aninda raporlama:
 - Scenario adi, URL ve screenshot path loglanir.
-- Console error ve 4xx/5xx HTTP loglari yazdirilir (varsa).
+- Screenshot adi: `timestamp-scenario-step.png`
+- Console error ve 4xx/5xx HTTP loglari `artifacts/logs/` altina yazilir.
 
 Arama sonucu dogrulamasi:
 - "Ilk urun" yerine sonuc listesinde herhangi bir urun basligi keyword icerir.
@@ -87,3 +93,19 @@ Kalite kontrol flag'leri:
 - `SANITY_SEARCH_RESULTS` (default `true`)
 - `SANITY_STEP_CONTENT` (default `true`)
 - `SANITY_SENTINELS` (default `false`)
+- `SANITY_PERF` (default `true`)
+- `PERF_BUDGET_MS` (default `8000`)
+
+## Tag ile calistirma
+
+Pozitif sepet senaryolari:
+
+```bash
+npx cucumber-js --tags @cart-positive
+```
+
+Negatif sepet senaryolari:
+
+```bash
+npx cucumber-js --tags @cart-negative
+```

@@ -1,15 +1,14 @@
 import { BasePage } from "./BasePage";
+import { searchSelectors } from "../selectors/search";
+import { retry } from "../support/retry";
 
 export class SearchResultsPage extends BasePage {
-  private resultsContainer = "div.s-main-slot";
-  private resultItems =
-    "div.s-main-slot div[data-component-type='s-search-result'][data-asin]:not([data-asin=''])";
-  private resultTitles =
-    "div.s-main-slot div[data-component-type='s-search-result'][data-asin]:not([data-asin='']) h2 span";
+  private resultsContainer = searchSelectors.resultsContainer;
+  private resultItems = searchSelectors.resultItems;
+  private resultTitles = `${searchSelectors.resultItems} ${searchSelectors.resultTitle}`;
 
   async waitForResults() {
-    await this.page.waitForSelector(this.resultsContainer, { timeout: 15000 });
-    await this.page.waitForSelector(this.resultItems, { timeout: 15000 });
+    await this.waitForReady();
   }
 
   private async getResultItems() {
@@ -146,13 +145,21 @@ export class SearchResultsPage extends BasePage {
     }
     if (href) {
       const absolute = href.startsWith("http") ? href : new URL(href, this.page.url()).toString();
-      await this.page.goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 });
+      await retry(
+        () => this.page.goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 }),
+        { label: "goto product", retries: 2, delayMs: 700 }
+      );
       await this.page.waitForSelector("#productTitle", { timeout: 20000 });
     } else {
-      await Promise.all([
-        this.page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 20000 }),
-        link.click({ timeout: 10000 })
-      ]);
+      await retry(
+        async () => {
+          await Promise.all([
+            this.page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 20000 }),
+            link.click({ timeout: 10000 })
+          ]);
+        },
+        { label: "click product", retries: 2, delayMs: 700 }
+      );
     }
     return title;
   }
@@ -169,15 +176,23 @@ export class SearchResultsPage extends BasePage {
     const href = await link.getAttribute("href");
     if (href) {
       const absolute = href.startsWith("http") ? href : new URL(href, this.page.url()).toString();
-      await this.page.goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 });
+      await retry(
+        () => this.page.goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 }),
+        { label: "goto product", retries: 2, delayMs: 700 }
+      );
       await this.page.waitForSelector("#productTitle", { timeout: 20000 });
       return titleText;
     }
 
-    await Promise.all([
-      this.page.waitForURL(/\/dp\//, { timeout: 20000 }),
-      link.click({ timeout: 10000 })
-    ]);
+    await retry(
+      async () => {
+        await Promise.all([
+          this.page.waitForURL(/\/dp\//, { timeout: 20000 }),
+          link.click({ timeout: 10000 })
+        ]);
+      },
+      { label: "click product", retries: 2, delayMs: 700 }
+    );
     await this.page.waitForSelector("#productTitle", { timeout: 20000 });
     return titleText;
   }
@@ -199,15 +214,28 @@ export class SearchResultsPage extends BasePage {
     const href = await link.getAttribute("href");
     if (href) {
       const absolute = href.startsWith("http") ? href : new URL(href, this.page.url()).toString();
-      await this.page.goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 });
+      await retry(
+        () => this.page.goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 }),
+        { label: "goto product", retries: 2, delayMs: 700 }
+      );
       await this.page.waitForSelector("#productTitle", { timeout: 20000 });
       return titleText;
     }
-    await Promise.all([
-      this.page.waitForURL(/\/dp\//, { timeout: 20000 }),
-      link.click({ timeout: 10000 })
-    ]);
+    await retry(
+      async () => {
+        await Promise.all([
+          this.page.waitForURL(/\/dp\//, { timeout: 20000 }),
+          link.click({ timeout: 10000 })
+        ]);
+      },
+      { label: "click product", retries: 2, delayMs: 700 }
+    );
     await this.page.waitForSelector("#productTitle", { timeout: 20000 });
     return titleText;
+  }
+
+  async waitForReady() {
+    await this.page.waitForSelector(this.resultsContainer, { timeout: 15000 });
+    await this.page.waitForSelector(this.resultItems, { timeout: 15000 });
   }
 }

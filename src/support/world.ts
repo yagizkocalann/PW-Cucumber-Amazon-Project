@@ -7,6 +7,7 @@ export class CustomWorld extends World {
   consoleErrors: string[] = [];
   httpErrors: string[] = [];
   lastProductTitle?: string;
+  lastFailureCaptured?: boolean;
 
   constructor(options: IWorldOptions) {
     super(options);
