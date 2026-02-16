@@ -83,3 +83,11 @@ Then("sepetime gidip ayni urunun eklendigini gorurum", async function (this: Cus
   const found = await cart.hasProductTitle(this.lastProductTitle);
   await expect(found).toBeTruthy();
 });
+
+Then("sepetime gidip {string} iceren urun gorunmemelidir", async function (this: CustomWorld, keyword: string) {
+  const page = getPage(this);
+  const cart = new CartPage(page);
+  await cart.gotoCart();
+  const found = await cart.hasProductTitle(keyword);
+  await expect(found).toBeFalsy();
+});

@@ -1,6 +1,8 @@
 import { expect } from "@playwright/test";
 import { config } from "../config/env";
 import type { Page } from "playwright";
+import { searchSelectors } from "../selectors/search";
+import { cartSelectors } from "../selectors/cart";
 
 export function normalizeTr(text: string) {
   return text
@@ -40,31 +42,8 @@ export async function assertSearchResultsNotEmpty(page: Page) {
     return;
   }
 
-  const results = page.locator(
-    "div.s-main-slot div[data-component-type='s-search-result'][data-asin]:not([data-asin=''])"
-  );
+  const results = page.locator(searchSelectors.resultItems);
   const count = await results.count();
-  expect(count).toBeGreaterThan(0);
-}
-
-export async function assertCartHasItems(page: Page) {
-  let url: URL | null = null;
-  try {
-    url = new URL(page.url());
-  } catch {
-    return;
-  }
-  const isCartPage =
-    url.pathname.includes("/cart") ||
-    url.pathname.includes("/gp/cart") ||
-    url.pathname.includes("/gp/aw/c");
-  if (!isCartPage) {
-    return;
-  }
-  const items = page.locator(
-    "div.sc-list-item, div.sc-list-item-content, div[data-item-count], div[data-asin]"
-  );
-  const count = await items.count();
   expect(count).toBeGreaterThan(0);
 }
 
@@ -98,8 +77,82 @@ export async function assertMainContentVisible(page: Page) {
     url.pathname.startsWith("/s") &&
     (url.searchParams.has("k") || url.searchParams.has("keywords"));
   if (isSearchPage) {
-    await expect(page.locator("div.s-main-slot")).toBeVisible();
+    await expect(page.locator(searchSelectors.resultsContainer)).toBeVisible();
     return;
   }
   await expect(page.locator("#twotabsearchtextbox")).toBeVisible();
+}
+
+export async function assertSearchResultHasPrice(page: Page) {
+  let url: URL | null = null;
+  try {
+    url = new URL(page.url());
+  } catch {
+    return;
+  }
+  const isSearchPage =
+    url.pathname.startsWith("/s") &&
+    (url.searchParams.has("k") || url.searchParams.has("keywords"));
+  if (!isSearchPage) {
+    return;
+  }
+  const firstItem = page.locator(searchSelectors.resultItems).first();
+  const price = firstItem.locator(searchSelectors.resultPrice).first();
+  await expect(price).toBeVisible();
+}
+
+export async function assertEmptySearchState(page: Page) {
+  let url: URL | null = null;
+  try {
+    url = new URL(page.url());
+  } catch {
+    return;
+  }
+  const isSearchPage =
+    url.pathname.startsWith("/s") &&
+    (url.searchParams.has("k") || url.searchParams.has("keywords"));
+  if (!isSearchPage) {
+    return;
+  }
+  const results = page.locator(searchSelectors.resultItems);
+  const count = await results.count();
+  if (count > 0) {
+    throw new Error(`Expected no search results, but found ${count}.`);
+  }
+}
+
+export async function assertCartHasItems(page: Page) {
+  let url: URL | null = null;
+  try {
+    url = new URL(page.url());
+  } catch {
+    return;
+  }
+  const isCartPage =
+    url.pathname.includes("/cart") ||
+    url.pathname.includes("/gp/cart") ||
+    url.pathname.includes("/gp/aw/c");
+  if (!isCartPage) {
+    return;
+  }
+  const items = page.locator(cartSelectors.cartItems);
+  const count = await items.count();
+  expect(count).toBeGreaterThan(0);
+}
+
+export async function assertPageLoadWithin(page: Page, maxMs: number) {
+  const nav = await page.evaluate(() => {
+    const entries = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
+    if (!entries || entries.length === 0) return null;
+    const entry = entries[0];
+    return {
+      duration: entry.duration,
+      domContentLoaded: entry.domContentLoadedEventEnd,
+      loadEventEnd: entry.loadEventEnd
+    };
+  });
+  if (!nav || !nav.duration || nav.duration <= 0) {
+    return;
+  }
+  expect(nav.duration).toBeLessThanOrEqual(maxMs);
 }
